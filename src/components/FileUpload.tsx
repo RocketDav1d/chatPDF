@@ -1,10 +1,21 @@
 'use client'
-import { Inbox } from 'lucide-react'
+import { Inbox, Loader2 } from 'lucide-react'
 import React from 'react'
 import {useDropzone} from 'react-dropzone'
 import { uploadToS3 } from '@/lib/s3'
+import { useMutation } from '@tanstack/react-query'
+import axios from 'axios'
+import { toast } from 'react-hot-toast'
 
 const FileUpload = () => {
+    const [uploading, setUploading] = React.useState(false)
+    const { mutate, isLoading } = useMutation({
+        mutationFn: async ({file_key, file_name}: {file_key:string, file_name:string}) => {
+            const response = await axios.post('/api/create-chat',{file_key, file_name})
+            return response.data
+        }
+    })
+
     const {getRootProps, getInputProps} = useDropzone({
         accept:{'application/pdf': ['.pdf']},
         maxFiles: 1,
@@ -13,15 +24,29 @@ const FileUpload = () => {
             const file = acceptedFiles[0]
             if (file.size > 10*1024*1024) {
                 // biger then 10MB
-                alert('File is too big')
+                toast.error('File is too big')
             }
             try {
+                setUploading(true)
                 const data = await uploadToS3(file)
-                console.log(data)
+                if (!data?.file_key || !data?.file_name) {
+                    toast.error('Error uploading file')
+                    return
+                }
+                mutate(data, {
+                    onSuccess: (data) => {
+                        toast.success(data.message)
+                    },
+                    onError: (err) => {
+                        toast.error('Error creating chat')
+                    }
+                })
             }
             catch (err) {
-                console.log(err)
-                alert('Error uploading file')
+            console.log(err)
+            }
+            finally {
+                setUploading(false)
             }
         }
     })
@@ -31,10 +56,20 @@ const FileUpload = () => {
             className: 'border-dashed border-2 rounded-xl cursor-pointer bg-gray-50 py-8 flex justfiy-center items-center flex-col'
         })}>
             <input {...getInputProps()}/ >
-            <>
-            <Inbox className='w-12 h-12 text-gray-400' />
-            <p className='mt-2 text-sm text-salte-400'> Drop PDF here</p>
-            </>
+                {uploading || isLoading ? (
+                    <>
+                        {/* {loading state} */}
+                        <Loader2 className='w-12 h-12 text-blue-500' />
+                        <p className='mt-2 text-sm text-slate-400'>
+                            Spilling Tea to GPT...☕️
+                        </p>
+                    </>
+                ):(
+                    <>
+                        <Inbox className='w-12 h-12 text-gray-400' />
+                        <p className='mt-2 text-sm text-salte-400'> Drop PDF here</p>
+                    </>
+                )}
         </div>
     </div>
   )
