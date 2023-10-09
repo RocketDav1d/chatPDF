@@ -1,7 +1,7 @@
 import AWS from 'aws-sdk';
 import fs from 'fs';
 
-export async function downlodFromS3 (file_key: string){
+export async function downloadFromS3 (file_key: string){
     try {
         AWS.config.update({
             accessKeyId: process.env.NEXT_PUBLIC_S3_AWS_ACCESS_KEY_ID,
@@ -23,8 +23,9 @@ export async function downlodFromS3 (file_key: string){
             console.log('downloading from S3...', parseInt((evt.loaded * 100 / evt.total).toString()) + '%')
         }).promise();
 
-        const filename = file_key.split('/')[1];
+        const filename = `/tmp/pdf-${Date.now()}.pdf`;
         fs.writeFileSync(filename, obj.Body as Buffer);
+        return filename;
     }
     catch (err) {
         console.error(err)
